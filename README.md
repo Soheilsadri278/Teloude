@@ -1,137 +1,253 @@
 # Teloude
 
-**Back up your own files to your own Telegram account.**
+**Back up your own files directly to your own Telegram account.**
 
-Teloude is a Windows-first personal backup app that uses *your* Telegram account as private storage. Each storage is a private Telegram forum supergroup, where folders become forum topics and the real folder hierarchy is preserved locally and inside self-describing message captions.
+Teloude is a Windows desktop backup application that uses your **personal Telegram account** as private, cloud-like storage for your files.
 
-**Backup, not sync: Teloude never deletes your local files.**
+Teloude is designed for **backup, not sync**.
+It never automatically deletes your local files.
+
+[🇮🇷 فارسی](README.fa.md)
 
 ---
 
-## Features
+## ✨ Features
 
-### Storage
+### 💾 Storage
 
-* Your Telegram account is the storage. No separate server or subscription.
-* Each storage is a private forum supergroup.
-* Folders are represented as Telegram forum topics.
-* Large files are split into volumes using Telegram's reported upload limits.
+* Uses your personal Telegram account
+* No dedicated server required
+* No monthly subscription
+* No third-party cloud storage
+* Uses Telegram MTProto through Telethon
+* Uses a private Telegram forum supergroup as storage
+* Maps local folders to Telegram forum topics
+* Supports folders and subfolders
+* Stores the local file structure in a SQLite database
+* Stores self-describing metadata in message captions for reliable file identification and recovery
 
-### Backup & Restore
+### 📦 Backup
 
-* Scan → compare → decide: **Skip / Upload again / Cancel**, with apply-to-all.
-* Pipelined and resumable uploads.
-* Pause, cancel, retry, reconnect and resume transfers.
-* Interrupted backups remain resumable after crashes or shutdowns.
-* Restore with explicit **Skip / Keep both / Replace / Cancel** decisions.
-* Path-traversal protection during restore.
-* **Find on Telegram** can rediscover storages and rebuild the local index on another PC.
+* Scan files and folders
+* Detect duplicate files
+* Choose how to handle duplicates:
 
-### Control
+  * Skip
+  * Upload again
+  * Cancel
+  * Apply to all
+* Pipelined multipart uploads
+* Resumable transfers
+* Pause / Resume
+* Cancel
+* Retry
+* Reconnect
+* Resume operations after shutdown or crash
+* Path traversal protection during restore
+* Find files on Telegram and rebuild the local index
 
-* Global upload speed limit.
-* Unlimited, 10, 5, 2 MB/s and custom speed settings.
-* Global MTProto proxy with persistent status.
-* Global search and previews across storages.
+### 🔄 Restore
 
-### Desktop & Safety
+When restoring files that already exist locally, Teloude provides:
 
-* Windows system tray support.
-* Notifications.
-* Light and dark themes.
-* Single-instance protection.
-* Closing the window moves Teloude to the system tray.
-* Telegram sessions and API credentials are protected with Windows DPAPI.
-* Structured logs with sensitive information redacted.
+* Skip
+* Keep both
+* Replace
+* Cancel
 
-## Safety Rules
+Restore operations validate destination paths to prevent files from escaping the selected destination directory.
 
-These are core rules of the project:
+### ⚡ Speed Control
 
-| Rule                         | Meaning                                                                      |
-| ---------------------------- | ---------------------------------------------------------------------------- |
-| **Backup, not sync**         | Local files are never deleted automatically.                                 |
-| **No silent overwrite**      | Every overwrite requires an explicit decision.                               |
-| **No silent cloud deletion** | Removing anything from Telegram requires confirmation.                       |
-| **No secrets in logs**       | API credentials, sessions and proxy information are redacted.                |
-| **No fake success**          | Cancelled or incomplete operations are never reported as successful backups. |
+Teloude includes an asynchronous Token Bucket speed limiter.
 
-## Repository Layout
+Available upload speed options include:
+
+* Unlimited
+* 10 MB/s
+* 5 MB/s
+* 2 MB/s
+* Custom
+
+The speed limiter operates globally across transfer operations without destroying pipeline concurrency.
+
+### 🌐 Proxy
+
+* MTProto Proxy support
+* Global proxy configuration
+* Proxy management from the application
+
+### 🖥️ Desktop UI
+
+* Windows desktop interface
+* Built with PySide6
+* System Tray support
+* Notifications
+* Theme support
+* Single-instance protection
+* Close-to-tray support
+* Simple interface focused on backup operations
+
+### 🔐 Security
+
+* Local credential protection using Windows DPAPI
+* No secrets in application logs
+* No silent overwrites
+* No automatic deletion of local files
+* No silent deletion of files stored on Telegram
+* No false success reporting
+
+---
+
+## 🛡️ Core Safety Rules
+
+| Rule                     | Teloude behavior                                         |
+| ------------------------ | -------------------------------------------------------- |
+| Backup, not sync         | Local files are never automatically deleted              |
+| No automatic deletion    | Teloude does not delete local files to free space        |
+| No silent overwrite      | Replacing an existing file requires an explicit decision |
+| No silent cloud deletion | Telegram files are not silently deleted                  |
+| No secrets in logs       | Sensitive information is excluded from logs              |
+| No fake success          | Failed operations are never reported as successful       |
+
+---
+
+## 🏗️ Project Structure
 
 ```text
-teloude/
-├── app/
-│   ├── domain/
-│   ├── application/
-│   ├── infrastructure/
-│   └── presentation/
-├── tests/
-├── scripts/
-├── installer/
-└── docs/
-
-Logo&icon/
+Teloude/
+├── teloude/
+│   ├── app/
+│   │   ├── domain/
+│   │   ├── application/
+│   │   ├── infrastructure/
+│   │   └── presentation/
+│   ├── tests/
+│   ├── scripts/
+│   ├── installer/
+│   └── docs/
+│
+├── Logo&icon/
+├── README.md
+├── README.fa.md
+└── ...
 ```
 
-## Quick Start
+---
+
+## 🚀 Installation & Setup
+
+### Requirements
+
+* Windows
+* Python 3.11+
+* Telegram account
+* Telegram API ID
+* Telegram API Hash
+
+Main dependencies include:
+
+* PySide6-Essentials
+* Telethon
+* Pillow
+* pypdf
+
+### Installation
+
+Clone the repository:
 
 ```bash
-cd teloude
+git clone https://github.com/Soheilsadri278/Teloude.git
+cd Teloude/teloude
+```
+
+Create a virtual environment:
+
+```bash
 python -m venv .venv
 ```
 
-Windows PowerShell:
+Activate it in PowerShell:
 
 ```powershell
 .venv\Scripts\Activate.ps1
+```
+
+Install the dependencies:
+
+```powershell
 pip install -e ".[dev]"
+```
+
+### Configure Telegram API
+
+Set your API credentials using environment variables:
+
+```powershell
+$env:TELOUDE_API_ID="YOUR_API_ID"
+$env:TELOUDE_API_HASH="YOUR_API_HASH"
+```
+
+Then run Teloude:
+
+```powershell
 python -m app
 ```
 
-On first launch, Teloude asks for:
+On the first launch, Teloude will guide you through Telegram authentication.
 
-1. Phone number
-2. Telegram login code
-3. 2FA password, if enabled
+---
 
-Application data is stored under:
+## 🔑 Telegram Login
+
+On the first launch:
+
+1. Enter your Telegram phone number.
+2. Enter the Telegram login code.
+3. Enter your Two-Step Verification password if enabled.
+
+After authentication, the Telegram session is stored locally.
+
+---
+
+## 📁 Data Location
+
+By default, Teloude stores its local application data in:
 
 ```text
 %LOCALAPPDATA%\Teloude
 ```
 
-Useful command-line options:
+Logs are stored in:
 
-| Flag                | Effect                                             |
-| ------------------- | -------------------------------------------------- |
-| `--version`         | Print the current Teloude version                  |
-| `--data-dir PATH`   | Use a custom data directory                        |
-| `--screenshot FILE` | Render the application window to PNG and exit      |
-| `--open-proxy`      | Open the proxy settings before taking a screenshot |
+```text
+%LOCALAPPDATA%\Teloude\logs\teloude.log
+```
 
-## Telegram API Credentials
+---
 
-Teloude supports three credential sources:
+## 🧰 Command-Line Options
 
-1. `TELOUDE_API_ID` / `TELOUDE_API_HASH` environment variables.
-2. An optional build-time `app/teloude_api.json` file.
-3. Credentials entered through the login screen.
+Teloude supports the following command-line options:
 
-Credentials are never committed to the repository and are not written to logs.
+```text
+--version
+--data-dir PATH
+--screenshot FILE
+--open-proxy
+```
 
-## Portability
+For example:
 
-The application itself is portable.
+```powershell
+python -m app --version
+```
 
-The packaged application, runtime and assets can be copied to another Windows PC and run without installation when using the portable build.
+---
 
-The Telegram session is intentionally **not** portable. Telegram session data and credentials are protected using Windows DPAPI, which binds them to the Windows user and machine.
+## 📦 Building for Windows
 
-Copying the application folder therefore starts Teloude signed out on another computer.
-
-## Build for Windows
-
-Build the normal Windows application:
+Build the Windows application:
 
 ```powershell
 powershell -File scripts\build_windows.ps1
@@ -140,83 +256,152 @@ powershell -File scripts\build_windows.ps1
 Build the portable version:
 
 ```powershell
+powershell -File scripts\build_portable.ps1
+```
+
+Build the portable ZIP package:
+
+```powershell
 powershell -File scripts\build_portable.ps1 -Zip
 ```
 
-The Windows build requires Python 3.11+.
+---
 
-The installer additionally requires Inno Setup 6.
+## 🔐 API Credentials
 
-## Tests
+Teloude supports several ways to provide Telegram API credentials.
+
+### 1. Environment Variables
+
+```text
+TELOUDE_API_ID
+TELOUDE_API_HASH
+```
+
+### 2. Build-Time Configuration
+
+Optional file:
+
+```text
+app/teloude_api.json
+```
+
+This file is excluded from Git.
+
+### 3. User-Provided Credentials
+
+Users can provide the required credentials during application setup.
+
+Sensitive credentials are protected locally using Windows DPAPI.
+
+---
+
+## 🔄 Portability
+
+The application and its assets are portable.
+
+However, Telegram sessions and API credentials are intentionally not directly portable because sensitive data is protected using Windows DPAPI and is bound to the Windows user and machine.
+
+Portable builds are shipped with empty application data.
+
+---
+
+## 🧪 Testing & Verification
 
 Run the test suite:
 
-```powershell
+```bash
 python -m pytest -q
 ```
 
-Run linting:
+Run Ruff:
 
-```powershell
+```bash
 python -m ruff check .
 ```
 
 Run benchmarks:
 
-```powershell
+```bash
 python scripts/benchmarks.py
 ```
 
-The test suite is designed to run without a real Telegram account. Telegram communication is replaced with a fake gateway during tests.
+---
 
-## Icons & Branding
+## 🎨 Icons
 
-`Logo&icon/` is the source of truth for Teloude's branding.
+The source icon files are located in:
 
-The icon generation script creates the application assets:
+```text
+Logo&icon/
+```
 
-```powershell
+Rebuild the application icons with:
+
+```bash
 python scripts/make_icon.py
 ```
 
-To verify that the generated assets are up to date:
+Generate an icon report with:
 
-```powershell
+```bash
 python scripts/icon_report.py
 ```
 
-After changing the artwork, the application must be rebuilt for the new icons to appear in the executable and installer.
+After changing the source icons, rebuild the application and shortcuts to update the generated assets.
 
-## Known Limitations
+---
 
-* Files are uploaded one at a time, while parts inside each file are pipelined.
-* Very small files may be uploaded again after a restart instead of being resumed.
-* Telegram's upload-session lifetime is not guaranteed, so Teloude may fall back to a fresh upload when necessary.
-* Benchmarks use a fake transport and therefore do not represent actual Telegram network throughput.
-* Teloude is Windows-first. Linux and macOS can run the source code and test suite, but packaged builds target Windows.
+## ⚠️ Current Limitations
 
-## Documentation
+* One file is processed as the primary transfer operation at a time, while its parts are transferred through a pipeline.
+* Very small files, approximately 10 MB or less, do not support resumable transfers across application restarts.
+* Telegram upload session lifetime is not guaranteed.
+* Benchmarks use a fake transport and are not representative of real-world Telegram network performance.
+* Current development is focused primarily on Windows.
 
-| Document                      | Description                  |
-| ----------------------------- | ---------------------------- |
-| `docs/REQUIREMENTS.md`        | Project requirements         |
-| `docs/ARCHITECTURE.md`        | Architecture and data model  |
-| `docs/IMPLEMENTATION_PLAN.md` | Implementation plan          |
-| `docs/VERIFICATION.md`        | Verification and test status |
-| `docs/BENCHMARKS.md`          | Performance benchmarks       |
+---
 
-## Requirements
+## 📚 Documentation
 
-* Python 3.11+
-* PySide6
-* Telethon
-* Pillow
-* pypdf
-* A Telegram account
-* Telegram API credentials from [my.telegram.org](https://my.telegram.org/apps)
+Technical and development documentation is available in:
 
-Windows is required for the packaged builds.
+```text
+docs/
+```
 
-## License
+This includes documentation for:
 
-MIT
+* Architecture
+* Verification
+* Packaging
+* Development
+* Testing
+* Project checks
+
+---
+
+## 🧱 Technology Stack
+
+* **Python**
+* **PySide6**
+* **Telethon**
+* **SQLite**
+* **Windows DPAPI**
+* **Telegram MTProto**
+* **Pillow**
+* **pypdf**
+
+---
+
+## 📜 License
+
+This project is released under the **MIT License**.
+
+---
+
+## 💡 The Idea
+
+Teloude is designed for people who want to keep their own files in their own Telegram storage without relying on a separate third-party cloud storage provider.
+
+**Your files. Your Telegram account. Your control.**
