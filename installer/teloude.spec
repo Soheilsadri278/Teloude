@@ -14,8 +14,10 @@ if _creds.exists():
     datas.append((str(_creds), "."))
 
 a = Analysis(  # noqa: F821
-    [str(ROOT / "app" / "__main__.py")],
-    pathex=[str(ROOT)],
+    # NOT app/__main__.py: as a bare script it has no package, so its relative imports fail at
+    # start-up. entry.py imports the app package properly - see the note in that file.
+    [str(ROOT / "installer" / "entry.py")],
+    pathex=[str(ROOT)],  # so `import app` resolves to the real package
     datas=datas,
     hiddenimports=["telethon.network.connection.tcpmtproxy", "PIL._tkinter_finder"],
     excludes=["tkinter", "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.Qt3DCore",

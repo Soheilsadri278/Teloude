@@ -15,6 +15,7 @@ scripts/windows_verify.py, which refuses to run anywhere else.
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -90,13 +91,23 @@ def main() -> int:
     check("app detects portable mode", "PORTABLE_MARKER" in cfg and "portable_root" in cfg)
 
     # ---------------------------------------------------------------- credentials
-    check(
-        "no credentials committed",
-        not (ROOT / "app" / "teloude_api.json").exists(),
-        "app/teloude_api.json would be bundled - keep it out of git",
-    )
+    creds = ROOT / "app" / "teloude_api.json"
     gi = ROOT / ".gitignore"
-    check("credentials file is git-ignored", gi.is_file() and "teloude_api.json" in gi.read_text(encoding="utf-8"))
+    ignored = gi.is_file() and "teloude_api.json" in gi.read_text(encoding="utf-8")
+    if (ROOT / ".git").exists():
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", str(creds)], cwd=ROOT, capture_output=True
+        ).returncode == 0
+        check("no credentials committed", not tracked, "app/teloude_api.json is tracked by git - remove it")
+    else:
+        # A source ZIP has no git metadata: the file is either absent or a deliberate injection for a
+        # release build (scripts/inject_credentials.py), which .gitignore keeps out of the repository.
+        check(
+            "no credentials committed",
+            not creds.exists() or ignored,
+            "app/teloude_api.json would be bundled - keep it out of git",
+        )
+    check("credentials file is git-ignored", ignored)
     inj = (ROOT / "scripts" / "inject_credentials.py").read_text(encoding="utf-8")
     check("credential injector can write and clear the file", "--api-id" in inj and "--clear" in inj)
     for name in ("build_windows.ps1", "build_portable.ps1"):

@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -135,7 +136,12 @@ def test_login_only_asks_for_api_credentials_when_none_are_available():
     assert "TELOUDE_API_ID" in settings
     build = (ROOT / "app/infrastructure/build_config.py").read_text(encoding="utf-8")
     assert "_MEIPASS" in build  # works from source AND from the frozen bundle
-    assert not (ROOT / "app" / "teloude_api.json").exists()
+    # scripts/inject_credentials.py may legitimately create app/teloude_api.json for a release.
+    # What must never happen is that the file is part of the repository.
+    creds = ROOT / "app" / "teloude_api.json"
+    if creds.exists() and (ROOT / ".git").exists():
+        tracked = subprocess.run(["git", "ls-files", "--error-unmatch", str(creds)], cwd=ROOT, capture_output=True)
+        assert tracked.returncode != 0, "app/teloude_api.json is tracked by git - remove it"
 
 
 def test_credentials_file_is_git_ignored_in_both_projects():

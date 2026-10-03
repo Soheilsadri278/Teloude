@@ -27,10 +27,15 @@ def qapp():
 
 
 def _controller(tmp_path, monkeypatch, *, bundled: bool, stored: bool):
-    if bundled:  # must exist before the controller starts: it is read once at construction
-        cfg = tmp_path / build_config.FILE_NAME
+    # must be pinned before the controller starts: it is read once at construction
+    cfg = tmp_path / build_config.FILE_NAME
+    if bundled:
         cfg.write_text(json.dumps({"api_id": 4242, "api_hash": "f" * 32}), encoding="utf-8")
-        monkeypatch.setattr(build_config, "bundled_credentials_path", lambda: cfg)
+    else:
+        # A developer may have injected credentials for a release build; this fixture is about the
+        # source-only experience, so it must not see them.
+        cfg = tmp_path / "absent" / build_config.FILE_NAME
+    monkeypatch.setattr(build_config, "bundled_credentials_path", lambda: cfg)
     paths = AppPaths(tmp_path / "data").ensure()
     ctl = AppController(paths, gateway=FakeGateway())
     if stored:

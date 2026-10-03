@@ -21,10 +21,10 @@
 #     another PC therefore starts Teloude signed out - that is the intended security behaviour, not
 #     a bug, and we never downgrade it to plaintext to make the folder "more portable".
 #   * data\ ships empty on purpose: never copy an existing %LOCALAPPDATA%\Teloude into a release.
+param([switch]$Zip)
+
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
-
-param([switch]$Zip)
 
 $Version = "1.0.0"
 $AppDir   = "dist\Teloude"                 # produced by PyInstaller (installer\teloude.spec)
@@ -104,11 +104,14 @@ $iconOk = (Test-Path (Join-Path $OutApp "assets\icon.ico")) -or
 if (-not $iconOk) { throw "portable build is missing assets\icon.ico" }
 
 if ($Zip) {
-    $zip = "dist\Teloude-Portable-$Version.zip"
-    Remove-Item -Force $zip -ErrorAction SilentlyContinue
-    Compress-Archive -Path (Join-Path $OutRoot "*") -DestinationPath $zip
-    Write-Host "Zip: $zip"
+    # NB: PowerShell variable names are case-insensitive, so this must NOT be called $zip -
+    # that would overwrite the [switch]$Zip parameter and throw ConvertToFinalInvalidCastException.
+    $zipPath = "dist\Teloude-Portable-$Version.zip"
+    Remove-Item -Force $zipPath -ErrorAction SilentlyContinue
+    Compress-Archive -Path (Join-Path $OutRoot "*") -DestinationPath $zipPath
+    Write-Host "Zip: $zipPath"
 }
 
-& (Join-Path ".venv\Scripts\python.exe") scripts\portable_verify.py --root $OutApp
+$py = if (Test-Path ".venv\Scripts\python.exe") { ".venv\Scripts\python.exe" } else { "python" }
+& $py scripts\portable_verify.py --root $OutApp
 Write-Host "Portable build: $OutApp"

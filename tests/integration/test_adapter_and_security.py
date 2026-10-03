@@ -208,6 +208,9 @@ def test_dpapi_roundtrip_and_no_plaintext_on_disk(tmp_path):
 def test_settings_service_keeps_secrets_out_of_the_database(tmp_path, monkeypatch):
     monkeypatch.delenv("TELOUDE_API_ID", raising=False)
     monkeypatch.delenv("TELOUDE_API_HASH", raising=False)
+    # inject_credentials.py may have written app/teloude_api.json for a release build; this test is
+    # about the application itself carrying nothing, so no build file may leak in here.
+    monkeypatch.setattr("app.application.settings.bundled_api_credentials", lambda: None)
     db = open_database(tmp_path / "s.db")
     secrets = MemorySecretStore()
     svc = SettingsService(Repos.create(db).settings, secrets)

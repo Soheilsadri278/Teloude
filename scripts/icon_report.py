@@ -57,7 +57,7 @@ def main() -> int:
     print("master artwork:", source or "(none - painted fallback)")
     print(f"{'file':46s} {'size':>9s}  {'sha256':16s}  deviation")
     for path, box, delta in rows:
-        where = str(path.relative_to(ROOT.parent)) if path.is_relative_to(ROOT.parent) else str(path)
+        where = (path.relative_to(ROOT.parent) if path.is_relative_to(ROOT.parent) else path).as_posix()
         print(f"{where:46s} {box:>9s}  {sha256(path):16s}  {delta:5.1f}")
 
     stale = [(p, d) for p, _, d in rows if d > make_icon.TOLERANCE]

@@ -23,6 +23,7 @@ from app.infrastructure.config import AppPaths  # noqa: E402
 from app.presentation.controller import AppController  # noqa: E402
 from app.presentation.icon import app_icon  # noqa: E402
 from app.presentation.main_window import MainWindow  # noqa: E402
+from app.presentation.pages import TRANSIENT_STATES  # noqa: E402
 from app.presentation.theme import LIGHT, apply_theme  # noqa: E402
 from app.testing.fake_gateway import FakeGateway  # noqa: E402
 
@@ -159,16 +160,14 @@ def test_per_file_progress_never_goes_backwards_when_the_state_changes(qapp, ctl
     sid = new_storage(qapp, ctl)
     page = win.page_widgets["Backups"]
 
-    states: list[str] = []
-    values: list[int] = []
+    events: list[tuple[str, float, float, int]] = []  # (state, reported done, reported total, bar)
 
     # Connected AFTER the page, so this slot runs after the page already painted the value.
     def record(fid, rel, st, done, total, speed, eta):
         row = page.rows.get(fid)
         if row is None:
             return
-        states.append(st)
-        values.append(int(page.table.cellWidget(row, 2).value()))
+        events.append((st, done, total, int(page.table.cellWidget(row, 2).value())))
 
     ctl.file_event.connect(record)
     finished: list = []
@@ -176,17 +175,28 @@ def test_per_file_progress_never_goes_backwards_when_the_state_changes(qapp, ctl
     ctl.start_backup(sid, str(src))
     assert wait_for(qapp, lambda: finished, timeout=30)
 
-    assert "reconnecting" in states or "retrying" in states, "the transient failure never happened"
-    # Drop the leading zeros (before the first acknowledged part) and require a non-decreasing run.
+    def trail() -> str:
+        return " | ".join(f"{st}:{done:.0f}/{total:.0f}={bar}" for st, done, total, bar in events)
+
+    assert any(st in ("reconnecting", "retrying") for st, *_ in events), "the transient failure never happened"
+
     started = False
-    prev = 0
-    for st, v in zip(states, values, strict=False):
-        if v == 0 and not started:
+    prev_done, prev_bar = 0.0, 0
+    for st, done, total, bar in events:
+        reported = int(done * 1000 / total) if total else prev_bar
+        if st in TRANSIENT_STATES:  # a transient state keeps the last acknowledged value
+            assert bar >= reported, f"bar {bar} is behind the reported {reported} on {st!r}: {trail()}"
+        else:
+            assert bar == reported, f"bar {bar} does not show the reported {reported} on {st!r}: {trail()}"
+        if bar == 0 and not started:
             continue
         started = True
-        assert v >= prev, f"progress bar went backwards on state {st!r}: {prev} -> {v}"
-        prev = v
-    assert values[-1] == 1000
+        # Acknowledged bytes never decrease. The only honest exception is the transfer itself
+        # reporting fewer of them (a lost upload session: Telegram discards the parts and they
+        # have to be sent again) - in that case the bar may go back, and it must say so.
+        assert bar >= prev_bar or done < prev_done, f"bar went back without a rewind on {st!r}: {trail()}"
+        prev_done, prev_bar = done, bar
+    assert events[-1][3] == 1000, trail()
 
 
 def test_progress_after_resume_starts_from_the_checkpoint_in_the_ui(qapp, ctl, win, tmp_path):

@@ -48,6 +48,37 @@ def exe_icon_png(path: Path, out: Path) -> bool:
     return out.is_file()
 
 
+def version_of(exe: Path, expected: str) -> tuple[bool, str]:
+    """(ok, detail): does the packaged EXE identify itself as Teloude ``expected``?
+
+    A windowed build has no console, so ``--version`` may print into nowhere; its version resource
+    is accepted as the answer too. Either way the detail carries whatever the EXE actually produced,
+    because that is the only clue when a packaged app refuses to start.
+    """
+    detail = ""
+    try:
+        out = subprocess.run([str(exe), "--version"], capture_output=True, text=True, timeout=60)
+        if out.returncode == 0 and "Teloude" in out.stdout:
+            return True, out.stdout.strip()
+        detail = f"exit {out.returncode}; stdout={out.stdout.strip()!r}; stderr={out.stderr.strip()!r}"
+    except subprocess.TimeoutExpired:
+        detail = "--version timed out after 60 s (antivirus scan, or the launch was blocked)"
+    resource = subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         f"(Get-Item -LiteralPath '{exe}').VersionInfo.ProductVersion"],
+        capture_output=True, text=True, timeout=120,
+    ).stdout.strip()
+    return resource.startswith(expected), f"{detail}; version resource = {resource or 'none'}"
+
+
+def app_log_tail(data_dir: Path) -> str:
+    """The last lines of the packaged app's own log - it writes to disk even with no console."""
+    log = data_dir / "logs" / "teloude.log"
+    if not log.is_file():
+        return f"(no log written at {log})"
+    return "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-15:])
+
+
 def report_icon_artwork(exe: Path) -> None:
     """Compare the icon the EXE really carries with the master artwork in Logo&icon/.
 
@@ -95,23 +126,32 @@ def main() -> int:
     ap.add_argument("--installer")
     ap.add_argument("--installed", action="store_true", help="also verify shortcuts of an installed copy")
     a = ap.parse_args()
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from app.infrastructure.config import APP_VERSION
+
     exe = Path(a.exe).resolve()
     check("exe exists", exe.exists(), str(exe))
     check("exe has embedded icon", embedded_icon_count(exe) >= 1, f"{embedded_icon_count(exe)} icon group(s)")
     report_icon_artwork(exe)  # does the EXE carry the artwork that is in Logo&icon/ right now?
-    ver = subprocess.run([str(exe), "--version"], capture_output=True, text=True, timeout=60)
-    check("exe starts (--version)", ver.returncode == 0 and "Teloude" in ver.stdout, ver.stdout.strip())
+    ok, detail = version_of(exe, APP_VERSION)
+    check(f"exe identifies itself as Teloude {APP_VERSION}", ok, detail)
 
     with tempfile.TemporaryDirectory() as td:
+        data = Path(td) / "data"
         shot = Path(td) / "proxy.png"
         base = Path(td) / "login.png"
-        env = dict(os.environ, TELOUDE_DATA_DIR=str(Path(td) / "data"))
-        subprocess.run([str(exe), "--screenshot", str(base)], env=env, timeout=120)
-        subprocess.run([str(exe), "--screenshot", str(shot), "--open-proxy"], env=env, timeout=120)
-        check("login window renders", base.exists() and painted_fraction(base) > 0.02)
-        ok = shot.exists()
-        frac = painted_fraction(shot) if ok else 0.0
-        check("proxy sheet paints in packaged exe", ok and frac > 0.05, f"painted area {frac:.1%}")
+        env = dict(os.environ, TELOUDE_DATA_DIR=str(data))
+        login = subprocess.run([str(exe), "--screenshot", str(base)], env=env, timeout=180,
+                               capture_output=True, text=True)
+        sheet = subprocess.run([str(exe), "--screenshot", str(shot), "--open-proxy"], env=env, timeout=180,
+                               capture_output=True, text=True)
+        rendered = base.exists() and painted_fraction(base) > 0.02
+        check("login window renders", rendered,
+              "" if rendered else f"exit {login.returncode}; {login.stderr.strip()}\n{app_log_tail(data)}")
+        frac = painted_fraction(shot) if shot.exists() else 0.0
+        check("proxy sheet paints in packaged exe", frac > 0.05,
+              f"painted area {frac:.1%}" if frac else
+              f"exit {sheet.returncode}; {sheet.stderr.strip()}\n{app_log_tail(data)}")
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from app.infrastructure.secrets import DpapiSecretStore

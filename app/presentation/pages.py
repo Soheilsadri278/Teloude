@@ -266,6 +266,10 @@ def fmt_eta(eta: float) -> str:
     return f"{s // 3600}h {s % 3600 // 60}m" if s >= 3600 else f"{s // 60}m {s % 60}s" if s >= 60 else f"{s}s"
 
 
+# States that report a change of situation, not new bytes: they must never lower a progress bar.
+TRANSIENT_STATES = frozenset({"hashing", "queued", "paused", "reconnecting", "retrying"})
+
+
 class BackupsPage(Page):
     def __init__(self, ctl: AppController):
         super().__init__(ctl)
@@ -422,7 +426,17 @@ class BackupsPage(Page):
             self.table.item(row, 0).setText(rel)
         self.table.item(row, 1).setText(STATE_LABEL.get(state, state))
         pb: QProgressBar = self.table.cellWidget(row, 2)  # type: ignore[assignment]
-        pb.setValue(int(done * 1000 / total) if total else (1000 if state == "completed" else 0))
+        if total:
+            value = int(done * 1000 / total)
+        elif state == "completed":
+            value = pb.maximum()
+        else:
+            value = pb.value()  # no new numbers in this event: keep what was acknowledged
+        if state in TRANSIENT_STATES:
+            # A transient state is not a progress report, so it may never rewind the bar - bytes
+            # Telegram acknowledged stay acknowledged (Windows paints these events more often).
+            value = max(value, pb.value())
+        pb.setValue(value)
         txt = f"{human_size(done)} / {human_size(total)}"
         if state in ("uploading", "downloading") and speed > 0:
             txt += f" · {human_size(speed)}/s · {fmt_eta(eta)}"
